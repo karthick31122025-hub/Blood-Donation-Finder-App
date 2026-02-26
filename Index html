@@ -1,1 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blood Donation Finder</title>
+<style>
+body{font-family:Arial;margin:0;background:#f8f9fa;}
+header{background:#c0392b;color:white;text-align:center;padding:15px;}
+.container{width:95%;max-width:1000px;margin:20px auto;}
+.card{background:white;padding:15px;margin-bottom:15px;border-radius:8px;box-shadow:0 2px 5px rgba(0,0,0,0.1);}
+input,select,button{width:100%;padding:8px;margin:5px 0;}
+button{background:#c0392b;color:white;border:none;cursor:pointer;}
+button:hover{background:#e74c3c;}
+.deleteBtn{background:#2c3e50;}
+table{border-collapse:collapse;width:100%;}
+th{background:#c0392b;color:white;}
+th,td{padding:8px;text-align:center;}
+</style>
+</head>
+<body>
+<header><h2>🩸 Blood Donation Finder App</h2></header>
+<div class="container">
 
+<!-- Login -->
+<div class="card" id="authCard">
+<h3>Login / Signup</h3>
+<input type="text" id="username" placeholder="Username">
+<input type="password" id="password" placeholder="Password">
+<select id="role">
+<option value="user">User</option>
+<option value="admin">Admin</option>
+<option value="hospital">Hospital</option>
+</select>
+<button onclick="register()">Signup</button>
+<button onclick="login()">Login</button>
+</div>
+
+<!-- Donor Register -->
+<div class="card hidden" id="donorCard">
+<h3>Register as Donor</h3>
+<input type="text" id="dname" placeholder="Full Name">
+<select id="blood">
+<option>A+</option><option>A-</option>
+<option>B+</option><option>B-</option>
+<option>O+</option><option>O-</option>
+<option>AB+</option><option>AB-</option>
+</select>
+<input type="text" id="city" placeholder="City">
+<select id="available">
+<option value="Yes">Available</option>
+<option value="No">Not Available</option>
+</select>
+<button onclick="addDonor()">Save Donor</button>
+</div>
+
+<!-- Search Donors -->
+<div class="card hidden" id="searchCard">
+<h3>Search Donors</h3>
+<select id="searchBlood">
+<option>A+</option><option>A-</option>
+<option>B+</option><option>B-</option>
+<option>O+</option><option>O-</option>
+<option>AB+</option><option>AB-</option>
+</select>
+<input type="text" id="searchCity" placeholder="City">
+<button onclick="searchDonor()">Search</button>
+<div id="results"></div>
+</div>
+
+<!-- Hospital Blood Requests -->
+<div class="card hidden" id="hospitalRequestCard">
+<h3>Hospital Blood Request</h3>
+<select id="reqHospitalSelect"></select>
+<select id="reqBloodHospital">
+<option>A+</option><option>A-</option>
+<option>B+</option><option>B-</option>
+<option>O+</option><option>O-</option>
+<option>AB+</option><option>AB-</option>
+</select>
+<input type="text" id="reqCityHospital" placeholder="City">
+<button onclick="postHospitalRequest()">Post Request</button>
+<div id="hospitalRequestsList"></div>
+<div id="nearestDonorList"></div>
+</div>
+
+<!-- Admin -->
+<div class="card hidden" id="adminCard">
+<h3>Admin Dashboard</h3>
+<button onclick="viewAllDonors()">View All Donors</button>
+<div id="adminData"></div>
+</div>
+
+</div>
+
+<script>
+// Data
+let users=JSON.parse(localStorage.getItem("users"))||[];
+let donors=JSON.parse(localStorage.getItem("donors"))||[];
+let hospitalRequests=JSON.parse(localStorage.getItem("hospitalRequests"))||[];
+let currentUserRole="";
+
+const hospitals=[
+{name:"Apollo Hospital",city:"Chennai",link:"https://www.apollohospitals.com/chennai"},
+{name:"MIOT International",city:"Chennai",link:"https://www.miotinternational.com/"},
+{name:"Fortis Malar",city:"Chennai",link:"https://www.fortismalar.com/"},
+{name:"Kauvery Hospital",city:"Chennai",link:"https://www.kauveryhospital.com/"},
+{name:"Sri Ramachandra",city:"Chennai",link:"https://www.sriramachandra.edu.in/"},
+{name:"PSG Hospital",city:"Coimbatore",link:"https://www.psghospitals.com/"},
+{name:"Ganga Hospital",city:"Coimbatore",link:"https://www.gangahospital.com/"},
+{name:"KG Hospital",city:"Coimbatore",link:"https://www.kghospital.com/"},
+{name:"Meenakshi Mission",city:"Madurai",link:"https://www.meenakshimission.org/"},
+{name:"Government Rajaji",city:"Madurai",link:"http://www.rajjihospital.com/"}];
+
+// Helpers
+function usernameInput(){return document.getElementById("username").value.trim();}
+function passwordInput(){return document.getElementById("password").value.trim();}
+
+// Register/Login
+function register(){
+let u=usernameInput(),p=passwordInput(),r=document.getElementById("role").value;
+if(!u||!p){alert("Fill all fields");return;}
+if(users.find(x=>x.username===u)){alert("Username exists");return;}
+users.push({username:u,password:p,role:r});
+localStorage.setItem("users",JSON.stringify(users));
+alert("Signup Successful");
+}
+
+function login(){
+let u=usernameInput(),p=passwordInput();
+let user=users.find(x=>x.username===u && x.password===p);
+if(user){
+currentUserRole=user.role;
+authCard.classList.add("hidden");
+if(user.role==="user"){donorCard.classList.remove("hidden");searchCard.classList.remove("hidden");}
+if(user.role==="hospital"){hospitalRequestCard.classList.remove("hidden");populateHospitalSelect();}
+if(user.role==="admin"){adminCard.classList.remove("hidden");}
+showHospitalRequests();
+}else alert("Invalid login");
+}
+
+// Donor
+function addDonor(){
+let n=dname.value.trim(),b=blood.value,c=city.value.trim(),a=available.value;
+if(!n||!c){alert("Fill all fields");return;}
+donors.push({name:n,blood:b,city:c,available:a});
+localStorage.setItem("donors",JSON.stringify(donors));
+alert("Donor Added");
+}
+
+// Search
+function searchDonor(){
+let b=searchBlood.value,c=searchCity.value.trim().toLowerCase();
+let res=donors.filter(x=>x.blood===b && x.city.toLowerCase()===c && x.available==="Yes");
+let out="";
+res.forEach(d=>{out+=`<p>${d.name} - ${d.blood} - ${d.city}</p>`;});
+results.innerHTML=out||"No Donors Found";
+}
+
+// Admin
+function viewAllDonors(){
+let out=`<table border="1"><tr><th>Name</th><th>Blood</th><th>City</th>${currentUserRole==="admin"? "<th>Action</th>":""}</tr>`;
+donors.forEach((d,i)=>{out+=`<tr><td>${d.name}</td><td>${d.blood}</td><td>${d.city}</td>${currentUserRole==="admin"?`<td><button onclick="deleteDonor(${i})">Delete</button></td>`:""}</tr>`;});
+out+="</table>";
+adminData.innerHTML=donors.length?out:"No Donors Available";
+}
+function deleteDonor(i){if(currentUserRole!=="admin"){alert("Unauthorized");return;}if(confirm("Delete?")){donors.splice(i,1);localStorage.setItem("donors",JSON.stringify(donors));viewAllDonors();alert("Deleted");}}
+
+// Hospital select
+function populateHospitalSelect(){
+reqHospitalSelect.innerHTML="";
+hospitals.forEach((h,i)=>{reqHospitalSelect.innerHTML+=`<option value="${h.name}">${h.name}</option>`;});
+}
+
+// Hospital Blood Request
+function postHospitalRequest(){
+let h=reqHospitalSelect.value,b=reqBloodHospital.value.trim(),city=reqCityHospital.value.trim();
+if(!b||!city){alert("Fill blood & city");return;}
+hospitalRequests.push({hospital:h,blood:b,city:city});
+localStorage.setItem("hospitalRequests",JSON.stringify(hospitalRequests));
+alert("Blood Request Posted!");
+showHospitalRequests();
+}
+
+// Show hospital requests and nearest donors
+function showHospitalRequests(){
+let out="";
+hospitalRequestsList.innerHTML="";
+nearestDonorList.innerHTML="";
+hospitalRequests.forEach(hr=>{
+out+=`<p><b>${hr.hospital}</b> needs <b>${hr.blood}</b> in <b>${hr.city}</b></p>`;
+let nearest=donors.filter(d=>d.blood===hr.blood && d.available==="Yes");
+nearest=nearest.map(d=>({...d,distance:distanceBetweenCities(d.city,hr.city)})).sort((a,b)=>a.distance-b.distance);
+let table=`<table border="1"><tr><th>Donor</th><th>Blood</th><th>City</th><th>Distance (km)</th></tr>`;
+nearest.forEach(d=>{table+=`<tr><td>${d.name}</td><td>${d.blood}</td><td>${d.city}</td><td>${d.distance}</td></tr>`;});
+table+="</table>";
+nearestDonorList.innerHTML+=`<hr>${table}`;
+});
+hospitalRequestsList.innerHTML=out||"No Requests Yet";
+}
+
+// Approximate city distance function
+function distanceBetweenCities(c1,c2){
+const map={"Chennai":0,"Coimbatore":500,"Madurai":450,"Vellore":130};
+return (map[c1]!==undefined && map[c2]!==undefined)?Math.abs(map[c1]-map[c2]):999;
+}
+</script>
+</body>
+</html>
